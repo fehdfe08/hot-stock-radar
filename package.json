@@ -1,0 +1,10 @@
+{
+  "name": "hot-stock-radar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:data": "node scripts/build-data.mjs",
+    "serve": "npx --yes http-server site -p 4173 -c-1"
+  }
+}

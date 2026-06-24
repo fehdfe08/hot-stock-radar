@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A股热门股统计与实质催化分析看板，追踪东方财富股吧人气榜 Top10。" />
+    <title>Hot Stock Radar | 热门股统计与分析</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Eastmoney Guba Rank Monitor</p>
+          <h1>热门股统计与实质催化雷达</h1>
+          <p class="subtitle">追踪 A 股人气榜 Top10，过滤低价值行情记录，保留业绩、订单、项目、政策和机构关注等可解释线索。</p>
+        </div>
+        <div class="status" aria-live="polite">
+          <span class="pulse"></span>
+          <span id="updateText">加载中</span>
+        </div>
+      </header>
+
+      <section class="metrics" aria-label="核心指标">
+        <article class="metric">
+          <span>上榜股票</span>
+          <strong id="stockCount">--</strong>
+        </article>
+        <article class="metric">
+          <span>强势上涨</span>
+          <strong id="strongCount">--</strong>
+        </article>
+        <article class="metric">
+          <span>实质催化</span>
+          <strong id="catalystCount">--</strong>
+        </article>
+        <article class="metric">
+          <span>无事件驱动</span>
+          <strong id="noCatalystCount">--</strong>
+        </article>
+      </section>
+
+      <section class="overview">
+        <article class="panel">
+          <div class="section-head">
+            <h2>板块热点</h2>
+            <span>按 Top10 集中度</span>
+          </div>
+          <div id="sectorList" class="chip-list"></div>
+        </article>
+        <article class="panel">
+          <div class="section-head">
+            <h2>概念聚焦</h2>
+            <span>高频概念</span>
+          </div>
+          <div id="conceptList" class="chip-list"></div>
+        </article>
+        <article class="panel leaders">
+          <div class="section-head">
+            <h2>龙头观察</h2>
+            <span>排名跃升</span>
+          </div>
+          <div id="leaderList"></div>
+        </article>
+      </section>
+
+      <section class="toolbar" aria-label="筛选工具">
+        <label class="search">
+          <span>搜索</span>
+          <input id="searchInput" type="search" placeholder="股票、代码、行业、概念" />
+        </label>
+        <label class="select">
+          <span>筛选</span>
+          <select id="filterSelect">
+            <option value="all">全部股票</option>
+            <option value="catalyst">有实质催化</option>
+            <option value="strong">涨幅超过 5%</option>
+            <option value="rankup">排名上升</option>
+          </select>
+        </label>
+      </section>
+
+      <section>
+        <div class="section-head list-head">
+          <h2>Top10 热门股</h2>
+          <span id="resultText">--</span>
+        </div>
+        <div id="stockGrid" class="stock-grid"></div>
+        <div id="emptyState" class="empty" hidden>没有匹配的股票。</div>
+      </section>
+
+      <footer class="footer">
+        <p>数据来源：东方财富公开页面与搜索接口。页面内容仅用于信息整理和热度观察，不构成投资建议。</p>
+        <a href="https://guba.eastmoney.com/rank/" target="_blank" rel="noreferrer">查看原始榜单</a>
+      </footer>
+    </main>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

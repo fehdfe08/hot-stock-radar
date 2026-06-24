@@ -57,7 +57,10 @@ async function enrichQuotes(items) {
     "f2", "f3", "f4", "f12", "f14", "f20", "f21", "f23", "f100", "f102", "f103", "f152"
   ].join(",");
   const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&np=3&ut=a79f54e3d4c8d44e494efb8f748db291&invt=2&secids=${secids}&fields=${fields}`;
-  const quoteJson = await fetchJson(url);
+  const quoteJson = await fetchJson(url).catch((error) => {
+    console.warn(`Quote API unavailable, using rank-only fallback: ${error.message}`);
+    return null;
+  });
   const byCode = new Map((quoteJson?.data?.diff || []).map((q) => [q.f12, q]));
 
   return items.map((item) => {
@@ -74,7 +77,7 @@ async function enrichQuotes(items) {
       marketCap: numberOrNull(q.f20),
       floatMarketCap: numberOrNull(q.f21),
       pe: numberOrNull(q.f23),
-      industry: clean(q.f100) || "未知行业",
+      industry: clean(q.f100) || "待补全",
       region: clean(q.f102) || "",
       concepts: splitConcepts(q.f103).slice(0, 10),
       newFans: Number(item.newFans || 0),
@@ -250,10 +253,34 @@ async function fetchJson(url) {
   return JSON.parse(text);
 }
 
-async function fetchText(url, referer = EASTMONEY_REFERER) {
-  const res = await fetch(url, { headers: { Referer: referer, "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
-  return res.text();
+async function fetchText(url, referer = EASTMONEY_REFERER, retries = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    let timeout;
+    try {
+      const controller = new AbortController();
+      timeout = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Referer: referer,
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+      });
+      clearTimeout(timeout);
+      if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+      return await res.text();
+    } catch (error) {
+      if (timeout) clearTimeout(timeout);
+      lastError = error;
+      if (attempt < retries) await sleep(1200 * attempt);
+    }
+  }
+  throw lastError;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function clean(value) {

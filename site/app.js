@@ -13,6 +13,7 @@ const els = {
   sectorList: document.querySelector("#sectorList"),
   conceptList: document.querySelector("#conceptList"),
   leaderList: document.querySelector("#leaderList"),
+  headlineList: document.querySelector("#headlineList"),
   stockGrid: document.querySelector("#stockGrid"),
   resultText: document.querySelector("#resultText"),
   emptyState: document.querySelector("#emptyState"),
@@ -57,6 +58,7 @@ function render() {
   renderChips(els.sectorList, data.summary.sectors);
   renderChips(els.conceptList, data.summary.concepts);
   renderLeaders();
+  renderHeadlines();
   renderStocks();
 }
 
@@ -76,6 +78,20 @@ function renderLeaders() {
       </div>
       <em class="${classBySign(stock.rankChange)}">排名 ${formatSigned(stock.rankChange)}</em>
     </div>
+  `).join("");
+}
+
+function renderHeadlines() {
+  const headlines = state.data.headlines || [];
+  if (headlines.length === 0) {
+    els.headlineList.innerHTML = '<div class="empty">暂无要闻。</div>';
+    return;
+  }
+  els.headlineList.innerHTML = headlines.map((item, index) => `
+    <a class="headline-item" href="${escapeAttribute(item.url)}" target="_blank" rel="noreferrer">
+      <span class="headline-title">${index + 1}. ${escapeHtml(item.title)}</span>
+      <span class="headline-source">${escapeHtml(item.source || "东方财富")}</span>
+    </a>
   `).join("");
 }
 

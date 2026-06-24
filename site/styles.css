@@ -118,7 +118,8 @@ h2 {
 
 .metrics,
 .overview,
-.stock-grid {
+.stock-grid,
+.content-layout {
   display: grid;
   gap: 14px;
 }
@@ -160,8 +161,76 @@ h2 {
 }
 
 .overview {
-  grid-template-columns: 1fr 1.35fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 14px;
+}
+
+.content-layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+}
+
+.main-column {
+  min-width: 0;
+}
+
+.news-panel {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+  padding: 18px 14px 14px;
+  overflow: hidden;
+}
+
+.headline-list {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.headline-item {
+  display: block;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+  color: var(--text);
+  transition-property: transform, border-color, background-color;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+
+.headline-item:hover {
+  transform: translateY(-1px);
+  border-color: #bdd0f2;
+  background: #f3f7ff;
+  text-decoration: none;
+}
+
+.headline-item:active {
+  transform: scale(0.99);
+}
+
+.headline-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.headline-source {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .panel {
@@ -269,7 +338,7 @@ select:focus {
 }
 
 .stock-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .stock-card {
@@ -436,8 +505,18 @@ select:focus {
 
   .metrics,
   .overview,
-  .stock-grid {
+  .stock-grid,
+  .content-layout {
     grid-template-columns: 1fr;
+  }
+
+  .news-panel {
+    position: static;
+    max-height: none;
+  }
+
+  .headline-list {
+    max-height: 420px;
   }
 
   .fields {

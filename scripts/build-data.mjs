@@ -14,7 +14,13 @@ const AES_IV = Buffer.from("getClassFromFile", "utf8");
 async function main() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   const rank = await fetchTopRank(10);
-  const stocks = await attachCatalysts(await enrichQuotes(rank));
+  const [stocks, headlines] = await Promise.all([
+    attachCatalysts(await enrichQuotes(rank)),
+    fetchHeadlines().catch((error) => {
+      console.warn(`Headline fetch failed: ${error.message}`);
+      return [];
+    })
+  ]);
 
   const sectors = topCounts(stocks.map((s) => s.industry), 8);
   const concepts = topCounts(stocks.flatMap((s) => s.concepts), 12);
@@ -34,6 +40,7 @@ async function main() {
       catalystCount,
       noCatalystCount: stocks.length - catalystCount
     },
+    headlines,
     stocks
   };
 
@@ -49,6 +56,66 @@ async function fetchTopRank(limit) {
   const decipher = crypto.createDecipheriv("aes-256-cbc", AES_KEY, AES_IV);
   const json = Buffer.concat([decipher.update(Buffer.from(base64, "base64")), decipher.final()]).toString("utf8");
   return JSON.parse(json).slice(0, limit);
+}
+
+async function fetchHeadlines() {
+  const pages = [
+    { url: "https://stock.eastmoney.com/", source: "东方财富股票" },
+    { url: "https://finance.eastmoney.com/", source: "东方财富财经" }
+  ];
+  const settled = await Promise.allSettled(pages.map(async (page) => {
+    const html = await fetchText(page.url, "https://www.eastmoney.com/");
+    return extractHeadlines(html, page.source);
+  }));
+  const all = settled.flatMap((item) => item.status === "fulfilled" ? item.value : []);
+  const seen = new Set();
+  return all
+    .filter((item) => {
+      const key = item.title.replace(/\s+/g, "").replace(/^[\d.、]+/, "");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 16);
+}
+
+function extractHeadlines(html, source) {
+  const linkPattern = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  const items = [];
+  let match;
+  while ((match = linkPattern.exec(html)) !== null) {
+    const url = normalizeEastmoneyUrl(match[1]);
+    const title = cleanHtml(match[2]).replace(/\s+/g, " ").trim();
+    if (!isHeadlineTitle(title, url)) continue;
+    items.push({ title, url, source });
+  }
+  return scoreHeadlines(items).slice(0, 12);
+}
+
+function isHeadlineTitle(title, url) {
+  if (!title || title.length < 10 || title.length > 46) return false;
+  if (!/^https?:\/\/[^/]*eastmoney\.com\//.test(url)) return false;
+  if (/股吧|详细|更多|开户|基金|APP|登录|注册|报价|行情|博客|专题|视频|图片|数据中心|Choice|东方财富网|手机/.test(title)) return false;
+  if (/^[\d:：\-\s]+/.test(title)) return false;
+  return /[一-龥]/.test(title);
+}
+
+function scoreHeadlines(items) {
+  return items
+    .map((item, index) => {
+      let score = 100 - index;
+      if (/重磅|突发|大涨|跳水|利好|利空|政策|监管|资金|外资|机构|AI|芯片|创新药|券商|金融|科技|业绩|订单|扩产/.test(item.title)) score += 30;
+      if (/龙虎榜|融资融券|千股千评|研报|评级|申购|中签/.test(item.title)) score -= 20;
+      return { ...item, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ score, ...item }) => item);
+}
+
+function normalizeEastmoneyUrl(url) {
+  if (url.startsWith("//")) return `https:${url}`;
+  if (url.startsWith("/")) return `https://stock.eastmoney.com${url}`;
+  return url;
 }
 
 async function enrichQuotes(items) {

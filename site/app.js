@@ -26,7 +26,9 @@ init();
 async function init() {
   bindEvents();
   try {
-    const res = await fetch("./data/latest.json", { cache: "no-store" });
+    const res = await fetch(`./data/latest.json?t=${Date.now()}`, {
+      cache: "no-store"
+    });
     if (!res.ok) throw new Error(`数据加载失败：${res.status}`);
     state.data = await res.json();
     render();

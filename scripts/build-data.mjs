@@ -119,16 +119,12 @@ function normalizeEastmoneyUrl(url) {
 }
 
 async function enrichQuotes(items) {
-  const secids = items.map((item) => `${item.code.startsWith("6") ? "1" : "0"}.${item.code}`).join(",");
+  const secids = items.map((item) => toSecid(item.code));
   const fields = [
     "f2", "f3", "f4", "f12", "f14", "f20", "f21", "f23", "f100", "f102", "f103", "f152"
   ].join(",");
-  const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&np=3&ut=a79f54e3d4c8d44e494efb8f748db291&invt=2&secids=${secids}&fields=${fields}`;
-  const quoteJson = await fetchJson(url).catch((error) => {
-    console.warn(`Quote API unavailable, using rank-only fallback: ${error.message}`);
-    return null;
-  });
-  const byCode = new Map((quoteJson?.data?.diff || []).map((q) => [q.f12, q]));
+  const quotes = await fetchQuoteRows(secids, fields);
+  const byCode = new Map(quotes.map((q) => [q.f12, q]));
 
   return items.map((item) => {
     const q = byCode.get(item.code) || {};
@@ -155,18 +151,79 @@ async function enrichQuotes(items) {
   });
 }
 
+async function fetchQuoteRows(secids, fields) {
+  const rows = await fetchQuoteRowsForSecids(secids, fields).catch((error) => {
+    console.warn(`Quote API bulk request failed, retrying in chunks: ${error.message}`);
+    return null;
+  });
+  if (rows) return rows;
+
+  const chunked = [];
+  for (let index = 0; index < secids.length; index += 3) {
+    const chunk = secids.slice(index, index + 3);
+    const chunkRows = await fetchQuoteRowsForSecids(chunk, fields).catch((error) => {
+      console.warn(`Quote API chunk failed for ${chunk.join(",")}: ${error.message}`);
+      return [];
+    });
+    chunked.push(...chunkRows);
+  }
+
+  if (chunked.length > 0) return chunked;
+  console.warn("Quote API unavailable, using rank and catalyst fallback.");
+  return [];
+}
+
+async function fetchQuoteRowsForSecids(secids, fields) {
+  const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&np=3&ut=a79f54e3d4c8d44e494efb8f748db291&invt=2&secids=${secids.join(",")}&fields=${fields}`;
+  const quoteJson = await fetchJson(url);
+  return quoteJson?.data?.diff || [];
+}
+
+function toSecid(code) {
+  return `${code.startsWith("6") ? "1" : "0"}.${code}`;
+}
+
 async function attachCatalysts(stocks) {
   return Promise.all(stocks.map(async (stock) => {
     const catalysts = await fetchCatalysts(stock).catch((error) => {
       console.warn(`Catalyst fetch failed for ${stock.code}: ${error.message}`);
       return [];
     });
+    const hydrated = hydrateStockFromCatalysts(stock, catalysts);
     return {
-      ...stock,
+      ...hydrated,
       catalysts,
-      drivers: buildDrivers(stock, catalysts)
+      drivers: buildDrivers(hydrated, catalysts)
     };
   }));
+}
+
+function hydrateStockFromCatalysts(stock, catalysts) {
+  if (stock.name && stock.name !== stock.code) return stock;
+  const inferredName = inferStockName(stock.code, catalysts);
+  return inferredName ? { ...stock, name: inferredName } : stock;
+}
+
+function inferStockName(code, catalysts) {
+  const patterns = [
+    new RegExp(`([\\u4e00-\\u9fa5A-Za-z][\\u4e00-\\u9fa5A-Za-z0-9]{1,12})[（(]${code}`),
+    new RegExp(`([\\u4e00-\\u9fa5A-Za-z][^:：\\s]{1,12})[:：]\\s*${code}`)
+  ];
+  for (const item of catalysts) {
+    const text = `${item.title || ""} ${item.content || ""}`;
+    for (const pattern of patterns) {
+      const candidate = clean(pattern.exec(text)?.[1]);
+      if (isLikelyStockName(candidate)) return candidate;
+    }
+  }
+  return "";
+}
+
+function isLikelyStockName(value) {
+  if (!value || value.length < 2 || value.length > 12) return false;
+  if (/^\d+$/.test(value)) return false;
+  if (/投资者|关系|管理|信息|公告|证券|快讯|数据宝/.test(value)) return false;
+  return /[\u4e00-\u9fa5]/.test(value);
 }
 
 async function fetchCatalysts(stock) {

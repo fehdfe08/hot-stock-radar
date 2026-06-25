@@ -33,7 +33,15 @@ jobs:
 
       - name: Show generated data timestamp
         run: |
-          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('site/data/latest.json','utf8')); console.log({generatedAt:j.generatedAt, sourceTime:j.sourceTime, top:j.stocks?.slice(0,3).map(s=>`${s.name}(${s.code})`)})"
+          node <<'NODE'
+          const fs = require('fs');
+          const j = JSON.parse(fs.readFileSync('site/data/latest.json', 'utf8'));
+          console.log({
+            generatedAt: j.generatedAt,
+            sourceTime: j.sourceTime,
+            top: j.stocks?.slice(0, 3).map((s) => `${s.name}(${s.code})`)
+          });
+          NODE
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
